@@ -1,0 +1,240 @@
+W 0 Integer Calculator C v0.7 by Carlos Mc Gregor
+W 0 -- printint variables start here --
+pitoprint: W 1
+piweight: I 1
+picharminus: C '-'
+pichar0: I 48
+pimask: H 80000000
+piC0: I 0
+piC1: I 1
+piC10: I 10
+W 0 -- my variables start here --
+Cmin1: I -1 // used for negative
+C0: I 0
+C1: I 1
+C4: I 4
+C10: I 10 // used for multiplying
+charE: C 'E'
+num: I 0 // holds current number from input
+INPnum: I 48 // holds current ASCII from number input
+W 0 -- input / output size checkers --
+INPcount: I 0 // input length counter
+OUTlimit: I 10000 // output lenght checker
+W 0 -- constants that hold ASCII variables --
+INP0: I 48 // constant that holds char '0'
+plus: I 43 // plus sign
+minus: I 45 // minus sign
+star: I 42 // mult sign
+slash: I 47 // div sign
+equal: I 61 // equal sign
+esc: I 27 // escape key
+carriage: I 10 // line feed
+char: W 1 // stores our input character
+frstopflag: I 0 // flag that indicates if first operation has occured
+AL1: W 1 // our product of successive operations
+AL2: W 1 // our working input number
+AL2neg: I 0 // flag that indicates if AL2 is negative
+W 0 -- ALF (operations) variables and constants --
+nxtALF: W 1 // holds operation for next ALF
+A0: ADD AL2
+S0: SUB AL2
+M0: MUL AL2
+D0: DIV AL2
+W 0 -- main: reset AL1, AL2, nxtALF, frstopflag --
+main:   LDA C0 // returns both AL1 and AL2 to 0
+	STA AL1
+	STA AL2
+	LDA A0 // reset nxtALF to add
+	STA nxtALF
+	LDA C0 // resets current working AL
+	STA frstopflag
+W 0 -- getinp: get input, exit if escape --
+getinp: INP opsys
+        STA char
+	XOR esc // exit if escape is pressed
+	BZE opsys
+        BUN cominp // otherwise compare input to numbers
+W 0 -- getnum: check if input is a number character --
+getnum: LDA num // add one to number from input
+        ADD C1
+        STA num
+        LDA num // check if number from input = 10
+        XOR C10
+        BZE getalf // if 10, check for operator symbol
+        LDA INPnum // add one to character number
+        ADD C1
+        STA INPnum
+cominp: LDA INPnum // check if character is the same as INPnum
+        XOR char
+        BZE compAL // add it to number if true
+        BUN getnum // otherwise loop back to getnum
+W 0 -- getalf: check if input is an operator symbol --
+getalf: LDA char // check if char is star
+        XOR star
+        BZE multi
+        LDA char // check if char is slash
+        XOR slash
+        BZE divis
+        LDA char // check if char is minus sign
+        XOR minus
+        BZE chkflg
+        LDA char // check if char is plus sign
+        XOR plus
+        BZE defop
+        BUN reset // if no operator sign, reset
+W 0 -- multi and divis: load corresponding operator to nxtALF --
+multi: 	LDA M0
+	STA nxtALF
+	BUN defop
+divis:	LDA D0
+	STA nxtALF
+	BUN defop	
+W 0 -- compAL: composes AL2 using new input number --
+compAL: LDA INPcount // check if AL2 is already 4 digits long
+	XOR C4
+	BZE reset // if it is, reset
+	LDA char // otherwise, print char and include in AL2
+	OUT opsys
+	LDA AL2 // multiply current AL2 by 10, then add new num
+	MUL C10
+	ADD num
+	STA AL2
+	LDA INPcount // add one to size counter
+	ADD C1
+	STA INPcount
+	BUN reset // reset after its done
+W 0 -- chkflg: manage AL2neg flag --
+chkflg:	LDA char // print minus character
+	OUT opsys
+	LDA INPcount // check if AL2 is untouched
+	XOR C0
+	BZE chkbck
+	BUN defopm
+chkbck:	LDA AL2neg // checks if AL2 flag is raised
+	XOR C1
+	BZE posflg // go to posflg if raised
+negflg:	LDA C1 // raises AL2 flag	
+	STA AL2neg
+	BIN endflg
+posflg: LDA C0 // lowers AL2 flag
+	STA AL2neg
+endflg:	BUN reset // otherwise go to reset
+W 0 -- defop: define if this is the first operation --
+defop:	LDA char
+	OUT opsys
+defopm:	LDA frstopflag // check if first operation has happened	
+	XOR C1
+	BZE op // if not the first, go to op
+W 0 -- frstop: add AL1 and AL2 --
+frstop:	BSA chkneg // go to chkneg to check if AL2 is negative
+	BUN fobck
+fobck:	LDA AL1 // add AL1 and AL2
+	ADD AL2
+	STA AL1 
+	LDA C1 // raise first operation flag
+	STA frstopflag
+	BUN wrapop
+W 0 -- op: do operation stored in ALF --
+op:	BSA chkneg
+	BUN mainop
+mainop:	LDA AL2
+	XOR C0
+	BZE isdiv
+mnobck:	LDA AL1
+ALF:	W 1
+	STA AL1
+W 0 -- wrapop: wrap up operation by cleaning up --
+wrapop:	LDA C0 // reset negative flag
+	STA AL2neg
+	LDA nxtALF // place nxtALF in ALF
+	STA ALF
+	LDA A0 // resest nxtALF to add
+	STA nxtALF
+	LDA C0 // reset AL2 to 0
+	STA AL2
+	LDA C0 // reset 4 digit input counter to 0
+	STA INPcount
+	LDA char // checks for equal sign to do output sequence
+	XOR equal
+	BZE out
+	LDA char // if minus sign, go back to raise the flag
+	XOR minus
+	BZE chkbck
+	BUN reset
+W 0 -- chkneg: check if AL2neg flag is raised, make AL2 neg if it is --
+chkneg: W 1
+	LDA AL2neg
+	XOR C0
+	BZE gobck
+	LDA AL2
+	MUL Cmin1
+	STA AL2
+gobck:	BIN chkneg // branch to what is stored in chkneg
+W 0 -- isdiv: check if operation in ALF is division --
+isdiv:	LDA ALF
+	XOR D0
+	BZE printe
+	BUN mnobck
+W 0 -- reset: reset all character checking variables --
+reset:	LDA C0 // reset num
+	STA num
+	LDA INP0 // reset num character input
+	STA INPnum
+	LDA char // check for equal sign
+	XOR equal
+	BZE defop // 
+	BUN getinp
+W 0 -- out: start output sequence --
+out:	LDA AL1
+	DIV OUTlimit
+	XOR C0
+	BZE goprnt
+	BUN printe
+W 0 -- printe: print character 'E' on error --
+printe:	LDA charE
+	OUT opsys
+	LDA carriage
+	OUT opsys
+	BUN main
+W 0 -- goprnt: go print --
+goprnt:	LDA AL1
+	BSA printint // go to printint
+	BUN main
+W 0 -- printint starts here: credit goes to whoever made this code! --
+W 0 -- DISCLAIMER: THIS CODE BELONGS TO WHOEVER MADE IT --
+printint: W 1
+	STA pitoprint
+	AND pimask
+	BZE piwhile1
+	LDA picharminus
+	OUT opsys
+	LDA piC0
+	SUB pitoprint
+	STA pitoprint
+piwhile1: LDA pitoprint
+	DIV piweight
+	SUB piC10
+	AND pimask
+	BZE pibody1
+	BUN piwhile2
+pibody1: LDA piweight
+	MUL piC10
+	STA piweight
+	BUN piwhile1
+piwhile2: LDA pitoprint
+	DIV piweight
+	ADD pichar0
+	OUT opsys
+	LDA piweight
+	XOR piC1
+	BZE pireturn
+	LDA pitoprint
+	MOD piweight
+	STA pitoprint
+	LDA piweight
+	DIV piC10
+	STA piweight
+	BUN piwhile2
+pireturn: LDA carriage // only modification to code, new line
+	OUT opsys
+	BIN printint
